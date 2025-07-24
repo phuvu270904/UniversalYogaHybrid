@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,22 +11,22 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { getUserBookings, Booking } from '../../services/firebaseService';
+import { getUserBookingsForDisplay, BookingForDisplay } from '../../services/firebaseService';
 
 export default function BookingsScreen() {
   const { user } = useAuth();
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<BookingForDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadBookings = async () => {
+  const loadBookings = useCallback(async () => {
     if (!user) {
       setLoading(false);
       return;
     }
 
     try {
-      const bookingsData = await getUserBookings(user.id);
+      const bookingsData = await getUserBookingsForDisplay(user.id);
       setBookings(bookingsData);
     } catch (error) {
       console.error('Error loading bookings:', error);
@@ -35,11 +35,11 @@ export default function BookingsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     loadBookings();
-  }, [user]);
+  }, [user, loadBookings]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -82,7 +82,7 @@ export default function BookingsScreen() {
     return classDateObj < today;
   };
 
-  const renderBookingItem = ({ item }: { item: Booking }) => (
+  const renderBookingItem = ({ item }: { item: BookingForDisplay }) => (
     <View style={styles.bookingCard}>
       <View style={styles.bookingHeader}>
         <Text style={styles.courseName}>{item.courseName}</Text>
@@ -94,7 +94,7 @@ export default function BookingsScreen() {
             styles.statusText,
             { color: getStatusColor(item.status) }
           ]}>
-            {item.status.toUpperCase()}
+            {item.status}
           </Text>
         </View>
       </View>
@@ -106,9 +106,16 @@ export default function BookingsScreen() {
         <Text style={styles.teacherName}>
           Teacher: {item.teacher}
         </Text>
-        <Text style={styles.bookingDate}>
-          Booked on: {formatBookingDate(item.bookingDate)}
-        </Text>
+        {item.location && (
+          <Text style={styles.location}>
+            Location: {item.location}
+          </Text>
+        )}
+        {item.comments && (
+          <Text style={styles.comments}>
+            Notes: {item.comments}
+          </Text>
+        )}
       </View>
       
       <View style={styles.bookingFooter}>
@@ -273,6 +280,16 @@ const styles = StyleSheet.create({
   bookingDate: {
     fontSize: 12,
     color: '#999',
+  },
+  location: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  comments: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
   },
   bookingFooter: {
     flexDirection: 'row',

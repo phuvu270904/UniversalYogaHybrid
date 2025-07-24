@@ -62,6 +62,27 @@ export interface Booking {
   user_id: string;
 }
 
+export interface BookingWithClassAndCourse extends Booking {
+  classInstance: ClassInstance;
+  course: Course;
+}
+
+export interface BookingForDisplay {
+  id: string;
+  courseName: string;
+  classDate: string;
+  teacher: string;
+  pricePerClass: number;
+  status: string;
+  bookingDate: Timestamp;
+  // Additional details from class and course
+  duration: number;
+  typeOfClass: string;
+  difficulty: string;
+  location?: string;
+  comments: string;
+}
+
 // Course services
 export const getCourses = async (): Promise<Course[]> => {
   try {
@@ -310,8 +331,7 @@ export const getUserBookings = async (customerId: string): Promise<Booking[]> =>
     const bookingsRef = collection(db, 'bookings');
     const q = query(
       bookingsRef,
-      where('user_id', '==', customerId),
-      orderBy('bookingDate', 'desc')
+      where('user_id', '==', customerId)
     );
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({
@@ -319,6 +339,137 @@ export const getUserBookings = async (customerId: string): Promise<Booking[]> =>
       ...doc.data()
     } as Booking));
   } catch {
+    return [];
+  }
+};
+
+// Enhanced booking function with class and course relations
+export const getUserBookingsWithRelations = async (customerId: string): Promise<BookingWithClassAndCourse[]> => {
+  try {
+    const bookingsRef = collection(db, 'bookings');
+    const q = query(
+      bookingsRef,
+      where('user_id', '==', customerId)
+    );
+    const snapshot = await getDocs(q);
+    
+    const bookings = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Booking));
+    
+    // Get class instance and course data for each booking
+    const bookingsWithRelations = await Promise.all(
+      bookings.map(async (booking) => {
+        try {
+          // Get class instance
+          const classInstanceDoc = await getDoc(doc(db, 'class_instances', booking.class_id));
+          if (!classInstanceDoc.exists()) {
+            return null;
+          }
+          
+          const classInstance = {
+            id: classInstanceDoc.id,
+            ...classInstanceDoc.data()
+          } as ClassInstance;
+          
+          // Get course data
+          const course = await getCourse(classInstance.course_id);
+          if (!course) {
+            return null;
+          }
+          
+          return {
+            ...booking,
+            classInstance,
+            course
+          } as BookingWithClassAndCourse;
+        } catch (error) {
+          console.error(`Error fetching relations for booking ${booking.id}:`, error);
+          return null;
+        }
+      })
+    );
+    
+    // Filter out null values (bookings with missing class instances or courses)
+    return bookingsWithRelations.filter(booking => booking !== null) as BookingWithClassAndCourse[];
+  } catch (error) {
+    console.error('Error fetching user bookings with relations:', error);
+    return [];
+  }
+};
+
+// Get a single booking with relations
+export const getBookingWithRelations = async (bookingId: string): Promise<BookingWithClassAndCourse | null> => {
+  try {
+    const bookingDoc = await getDoc(doc(db, 'bookings', bookingId));
+    if (!bookingDoc.exists()) {
+      return null;
+    }
+    
+    const booking = {
+      id: bookingDoc.id,
+      ...bookingDoc.data()
+    } as Booking;
+    
+    // Get class instance
+    const classInstanceDoc = await getDoc(doc(db, 'class_instances', booking.class_id));
+    if (!classInstanceDoc.exists()) {
+      return null;
+    }
+    
+    const classInstance = {
+      id: classInstanceDoc.id,
+      ...classInstanceDoc.data()
+    } as ClassInstance;
+    
+    // Get course data
+    const course = await getCourse(classInstance.course_id);
+    if (!course) {
+      return null;
+    }
+    
+    return {
+      ...booking,
+      classInstance,
+      course
+    } as BookingWithClassAndCourse;
+  } catch (error) {
+    console.error('Error fetching booking with relations:', error);
+    return null;
+  }
+};
+
+// Get user bookings formatted for display
+export const getUserBookingsForDisplay = async (customerId: string): Promise<BookingForDisplay[]> => {
+  try {
+    const bookingsWithRelations = await getUserBookingsWithRelations(customerId);
+    
+    const bookingsForDisplay = bookingsWithRelations.map((booking) => {
+      return {
+        id: booking.id,
+        courseName: booking.course.type,
+        classDate: booking.classInstance.date,
+        teacher: booking.classInstance.teacher,
+        pricePerClass: booking.course.price,
+        status: 'confirmed', // Default status since Firestore doesn't have status field
+        bookingDate: booking.course.createdAt, // Using course creation as booking date placeholder
+        duration: booking.course.duration,
+        typeOfClass: booking.course.type,
+        difficulty: booking.course.difficulty,
+        location: booking.course.location,
+        comments: booking.classInstance.comments
+      } as BookingForDisplay;
+    });
+    
+    // Sort by class date (newest first)
+    return bookingsForDisplay.sort((a, b) => {
+      const dateA = new Date(a.classDate);
+      const dateB = new Date(b.classDate);
+      return dateB.getTime() - dateA.getTime();
+    });
+  } catch (error) {
+    console.error('Error fetching user bookings for display:', error);
     return [];
   }
 };

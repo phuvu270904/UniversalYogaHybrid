@@ -50,23 +50,23 @@ export default function Index() {
           </View>
           <View style={styles.feature}>
             <Text style={styles.featureIcon}>🎯</Text>
-            <Text style={styles.featureText}>Track your progress</Text>
+            <Text style={styles.featureText}>Track your Booking</Text>
           </View>
         </View>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
             style={styles.primaryButton}
-            onPress={() => router.push('/signup' as any)}
-          >
-            <Text style={styles.primaryButtonText}>Get Started</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.secondaryButton}
             onPress={() => router.push('/login' as any)}
           >
-            <Text style={styles.secondaryButtonText}>Sign In</Text>
+            <Text style={styles.primaryButtonText}>Sign In</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.secondaryButton}
+            onPress={() => router.push('/signup' as any)}
+          >
+            <Text style={styles.secondaryButtonText}>Sign up</Text>
           </TouchableOpacity>
         </View>
       </View>

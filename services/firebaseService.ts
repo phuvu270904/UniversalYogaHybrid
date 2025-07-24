@@ -16,7 +16,7 @@ export interface Course {
   id: string;
   capacity: number;
   createdAt: Timestamp;
-  dayOfWeek: string;
+  dayofweek: string;
   description?: string;
   difficulty: string;
   duration: number;

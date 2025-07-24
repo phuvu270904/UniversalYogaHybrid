@@ -73,7 +73,7 @@ export default function CoursesScreen() {
       
       <View style={styles.courseDetails}>
         <Text style={styles.courseInfo}>
-          {item.dayOfWeek} • {item.duration} minutes
+          {item.dayofweek} • {item.duration} minutes
         </Text>
         <Text style={styles.courseType}>{item.difficulty}</Text>
         <Text style={styles.courseCapacity}>Capacity: {item.capacity} people</Text>

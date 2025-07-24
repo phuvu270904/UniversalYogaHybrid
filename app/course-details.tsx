@@ -212,7 +212,7 @@ export default function CourseDetailsScreen() {
               </Text>
               <Text style={styles.courseDetail}>
                 <Text style={styles.detailLabel}>Day: </Text>
-                {course.dayOfWeek}
+                {course.dayofweek}
               </Text>
               <Text style={styles.courseDetail}>
                 <Text style={styles.detailLabel}>Duration: </Text>

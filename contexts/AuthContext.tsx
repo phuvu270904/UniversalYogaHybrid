@@ -1,26 +1,23 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged,
-  User
-} from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase.config';
+import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { db } from '../config/firebase.config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface UserData {
-  uid: string;
+  id: string;
   email: string;
-  displayName: string;
+  name: string;
   phone?: string;
+  role: string;
+  password: string;
+  created_date: string;
 }
 
 interface AuthContextType {
   user: UserData | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, displayName: string, phone?: string) => Promise<void>;
+  signup: (email: string, password: string, name: string, phone?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -39,53 +36,99 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: User | null) => {
-      if (firebaseUser) {
-        // Get user data from Firestore
-        const userDoc = await getDoc(doc(db, 'customers', firebaseUser.uid));
-        if (userDoc.exists()) {
-          setUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            ...userDoc.data()
-          } as UserData);
-        } else {
-          // Fallback to Firebase Auth data
-          setUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            displayName: firebaseUser.displayName || ''
-          });
+    // Check for existing user session on app start
+    const checkUserSession = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('userData');
+        if (userData) {
+          setUser(JSON.parse(userData));
         }
-      } else {
-        setUser(null);
+      } catch (error) {
+        console.error('Error checking user session:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    };
 
-    return unsubscribe;
+    checkUserSession();
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      // Query the users collection for a user with matching email and role "user"
+      const usersQuery = query(
+        collection(db, 'users'),
+        where('email', '==', email),
+        where('role', '==', 'user')
+      );
+      
+      const querySnapshot = await getDocs(usersQuery);
+      
+      if (querySnapshot.empty) {
+        throw new Error('User not found or invalid credentials');
+      }
+      
+      const userDoc = querySnapshot.docs[0];
+      const userData = userDoc.data() as UserData;
+      
+      // Simple password check (in production, use proper hashing)
+      if (userData.password !== password) {
+        throw new Error('Invalid credentials');
+      }
+      
+      // Set user data with document ID
+      const userDataWithId = {
+        ...userData,
+        id: userDoc.id
+      };
+      
+      setUser(userDataWithId);
+      
+      // Store user session
+      await AsyncStorage.setItem('userData', JSON.stringify(userDataWithId));
+      
     } catch (error: any) {
       throw new Error(error.message);
     }
   };
 
-  const signup = async (email: string, password: string, displayName: string, phone?: string) => {
+  const signup = async (email: string, password: string, name: string, phone?: string) => {
     try {
-      const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
+      // Check if user already exists
+      const existingUserQuery = query(
+        collection(db, 'users'),
+        where('email', '==', email)
+      );
       
-      // Save additional user data to Firestore
-      await setDoc(doc(db, 'customers', firebaseUser.uid), {
+      const existingUserSnapshot = await getDocs(existingUserQuery);
+      
+      if (!existingUserSnapshot.empty) {
+        throw new Error('User with this email already exists');
+      }
+      
+      // Create new user document
+      const newUser = {
         email,
-        displayName,
+        password, // In production, hash this password
+        name,
         phone: phone || '',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
+        role: 'user',
+        created_date: new Date().getTime().toString()
+      };
+      
+      const docRef = await addDoc(collection(db, 'users'), newUser);
+      
+      // Set user data with document ID
+      const userDataWithId = {
+        ...newUser,
+        id: docRef.id
+      };
+      
+      setUser(userDataWithId);
+      
+      // Store user session
+      await AsyncStorage.setItem('userData', JSON.stringify(userDataWithId));
+      
     } catch (error: any) {
       throw new Error(error.message);
     }
@@ -93,7 +136,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await signOut(auth);
+      // Clear user data from state
+      setUser(null);
+      
+      // Remove user session from AsyncStorage
+      await AsyncStorage.removeItem('userData');
+      
     } catch (error: any) {
       throw new Error(error.message);
     }

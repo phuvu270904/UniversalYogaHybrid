@@ -26,7 +26,7 @@ export default function BookingsScreen() {
     }
 
     try {
-      const bookingsData = await getUserBookings(user.uid);
+      const bookingsData = await getUserBookings(user.id);
       setBookings(bookingsData);
     } catch (error) {
       console.error('Error loading bookings:', error);

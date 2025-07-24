@@ -74,8 +74,8 @@ export default function CourseDetailsScreen() {
     setBookingLoading(classItem.id);
     try {
       await createBooking(
-        user.uid,
-        user.displayName,
+        user.id,
+        user.name,
         user.email,
         classItem
       );

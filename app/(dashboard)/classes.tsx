@@ -68,8 +68,8 @@ export default function ClassesScreen() {
     setBookingLoading(classItem.id);
     try {
       await createBooking(
-        user.uid,
-        user.displayName,
+        user.id,
+        user.name,
         user.email,
         classItem
       );

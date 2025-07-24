@@ -30,7 +30,7 @@ export default function DashboardHome() {
     try {
       const [classesData, bookingsData] = await Promise.all([
         getUpcomingClasses(),
-        user ? getUserBookings(user.uid) : []
+        user ? getUserBookings(user.id) : []
       ]);
       
       setUpcomingClasses(classesData.slice(0, 3)); // Show only first 3
@@ -79,7 +79,7 @@ export default function DashboardHome() {
     >
       <View style={styles.header}>
         <Text style={styles.greeting}>Welcome back,</Text>
-        <Text style={styles.userName}>{user?.displayName || 'Yoga Enthusiast'}!</Text>
+        <Text style={styles.userName}>{user?.name || 'Yoga Enthusiast'}!</Text>
       </View>
 
       {/* Quick Stats */}

@@ -73,7 +73,7 @@ export default function ProfileScreen() {
             <Ionicons name="person-circle" size={80} color="#2E8B57" />
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{user.displayName || 'Yoga Enthusiast'}</Text>
+            <Text style={styles.userName}>{user.name || 'Yoga Enthusiast'}</Text>
             <Text style={styles.userEmail}>{user.email}</Text>
             {user.phone && (
               <Text style={styles.userPhone}>{user.phone}</Text>

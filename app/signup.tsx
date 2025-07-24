@@ -54,7 +54,7 @@ export default function SignupScreen() {
     try {
       await signup(email.trim(), password, displayName.trim(), phone.trim());
       Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => router.replace('/dashboard') }
+        { text: 'OK', onPress: () => router.replace('/') }
       ]);
     } catch (error: any) {
       Alert.alert('Signup Failed', error.message);

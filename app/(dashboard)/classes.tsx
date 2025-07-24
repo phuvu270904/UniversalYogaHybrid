@@ -10,18 +10,18 @@ import {
   Alert
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
-import { getUpcomingClasses, createBooking, ClassInstance } from '../../services/firebaseService';
+import { getUpcomingClassesForDisplay, createBooking, ClassForDisplay } from '../../services/firebaseService';
 
 export default function ClassesScreen() {
   const { user } = useAuth();
-  const [classes, setClasses] = useState<ClassInstance[]>([]);
+  const [classes, setClasses] = useState<ClassForDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [bookingLoading, setBookingLoading] = useState<string | null>(null);
 
   const loadClasses = async () => {
     try {
-      const classesData = await getUpcomingClasses();
+      const classesData = await getUpcomingClassesForDisplay();
       setClasses(classesData);
     } catch (error) {
       console.error('Error loading classes:', error);
@@ -41,7 +41,7 @@ export default function ClassesScreen() {
     loadClasses();
   };
 
-  const handleBookClass = async (classItem: ClassInstance) => {
+  const handleBookClass = async (classItem: ClassForDisplay) => {
     if (!user) {
       Alert.alert('Login Required', 'Please login to book a class.');
       return;
@@ -62,7 +62,7 @@ export default function ClassesScreen() {
     );
   };
 
-  const confirmBooking = async (classItem: ClassInstance) => {
+  const confirmBooking = async (classItem: ClassForDisplay) => {
     if (!user) return;
 
     setBookingLoading(classItem.id);
@@ -102,17 +102,9 @@ export default function ClassesScreen() {
     });
   };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   const isClassFull = (availableSpots: number) => availableSpots <= 0;
 
-  const renderClassItem = ({ item }: { item: ClassInstance }) => (
+  const renderClassItem = ({ item }: { item: ClassForDisplay }) => (
     <View style={styles.classCard}>
       <View style={styles.classHeader}>
         <Text style={styles.className}>{item.courseName}</Text>
@@ -132,7 +124,7 @@ export default function ClassesScreen() {
       <View style={styles.classDetails}>
         <Text style={styles.classDate}>{formatDate(item.date)}</Text>
         <Text style={styles.classInfo}>
-          Teacher: {item.teacher} • {item.duration} min • {item.typeOfClass}
+          Teacher: {item.teacher} • {item.duration} min • {item.difficulty}
         </Text>
         {item.comments && (
           <Text style={styles.classComments}>{item.comments}</Text>

@@ -41,22 +41,25 @@ export interface ClassInstanceWithCourse extends ClassInstance {
   course: Course;
 }
 
+export interface ClassForDisplay {
+  id: string;
+  courseId: string;
+  courseName: string;
+  date: string;
+  teacher: string;
+  comments?: string;
+  duration: number;
+  typeOfClass: string;
+  pricePerClass: number;
+  availableSpots: number;
+  difficulty: string;
+  capacity: number;
+}
+
 export interface Booking {
   id: string;
-  firestore_id: string;
   class_id: string;
   user_id: string;
-  sync_status: string;
-  // Additional fields for app functionality
-  customerName?: string;
-  customerEmail?: string;
-  courseId?: string;
-  courseName?: string;
-  classDate?: string;
-  teacher?: string;
-  pricePerClass?: number;
-  bookingDate?: Timestamp;
-  status?: 'confirmed' | 'cancelled';
 }
 
 // Course services
@@ -224,27 +227,68 @@ export const getClassesByCourseWithCourse = async (courseId: string): Promise<Cl
   }
 };
 
+// Helper function to get booking count for a class
+export const getClassBookingCount = async (classId: string): Promise<number> => {
+  try {
+    const bookingsRef = collection(db, 'bookings');
+    const q = query(
+      bookingsRef,
+      where('class_id', '==', classId),
+      where('status', '==', 'confirmed')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.size;
+  } catch (error) {
+    console.error('Error getting booking count:', error);
+    return 0;
+  }
+};
+
+// Get upcoming classes with full display information
+export const getUpcomingClassesForDisplay = async (): Promise<ClassForDisplay[]> => {
+  try {
+    const classesWithCourse = await getUpcomingClassesWithCourse();
+    
+    const classesForDisplay = await Promise.all(
+      classesWithCourse.map(async (classWithCourse) => {
+        const bookingCount = await getClassBookingCount(classWithCourse.id);
+        const availableSpots = Math.max(0, classWithCourse.course.capacity - bookingCount);
+        
+        return {
+          id: classWithCourse.id,
+          courseId: classWithCourse.course_id,
+          courseName: classWithCourse.course.type, // Using type as course name
+          date: classWithCourse.date,
+          teacher: classWithCourse.teacher,
+          comments: classWithCourse.comments,
+          duration: classWithCourse.course.duration,
+          typeOfClass: classWithCourse.course.type,
+          pricePerClass: classWithCourse.course.price,
+          availableSpots,
+          difficulty: classWithCourse.course.difficulty,
+          capacity: classWithCourse.course.capacity
+        } as ClassForDisplay;
+      })
+    );
+    
+    return classesForDisplay;
+  } catch (error) {
+    console.error('Error fetching classes for display:', error);
+    return [];
+  }
+};
+
 // Booking services
 export const createBooking = async (
   customerId: string,
   customerName: string,
   customerEmail: string,
-  classInstance: ClassInstance
+  classInstance: ClassForDisplay
 ): Promise<string> => {
   try {
     const bookingData: Omit<Booking, 'id'> = {
-      firestore_id: '', // Will be set after document creation
       class_id: classInstance.id,
       user_id: customerId,
-      sync_status: 'synced',
-      // Additional fields for app functionality
-      customerName,
-      customerEmail,
-      courseId: classInstance.course_id,
-      classDate: classInstance.date,
-      teacher: classInstance.teacher,
-      bookingDate: Timestamp.now(),
-      status: 'confirmed'
     };
 
     const docRef = await addDoc(collection(db, 'bookings'), bookingData);
@@ -252,7 +296,6 @@ export const createBooking = async (
     // Update the document with its own ID as firestore_id
     await setDoc(doc(db, 'bookings', docRef.id), {
       ...bookingData,
-      firestore_id: docRef.id
     });
     
     return docRef.id;

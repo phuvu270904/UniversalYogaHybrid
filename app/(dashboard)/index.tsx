@@ -10,12 +10,12 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { getUpcomingClasses, getUserBookings, ClassInstance, Booking } from '../../services/firebaseService';
+import { getUpcomingClassesWithCourse, getUserBookings } from '../../services/firebaseService';
 
 export default function DashboardHome() {
   const { user, loading: authLoading } = useAuth();
-  const [upcomingClasses, setUpcomingClasses] = useState<ClassInstance[]>([]);
-  const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+  const [upcomingClasses, setUpcomingClasses] = useState<any[]>([]);
+  const [recentBookings, setRecentBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -29,7 +29,7 @@ export default function DashboardHome() {
   const loadData = useCallback(async () => {
     try {
       const [classesData, bookingsData] = await Promise.all([
-        getUpcomingClasses(),
+        getUpcomingClassesWithCourse(),
         user ? getUserBookings(user.id) : []
       ]);
       
@@ -107,12 +107,12 @@ export default function DashboardHome() {
           upcomingClasses.map((classItem) => (
             <View key={classItem.id} style={styles.classCard}>
               <View style={styles.classHeader}>
-                <Text style={styles.className}>{classItem.courseName}</Text>
+                <Text style={styles.className}>{classItem.course.type}</Text>
                 <Text style={styles.classDate}>{formatDate(classItem.date)}</Text>
               </View>
               <Text style={styles.classTeacher}>Teacher: {classItem.teacher}</Text>
-              <Text style={styles.classType}>{classItem.typeOfClass} • {classItem.duration} min</Text>
-              <Text style={styles.classPrice}>${classItem.pricePerClass}</Text>
+              <Text style={styles.classType}>{classItem.course.difficulty} • {classItem.course.duration} min</Text>
+              <Text style={styles.classPrice}>${classItem.course.price}</Text>
             </View>
           ))
         ) : (

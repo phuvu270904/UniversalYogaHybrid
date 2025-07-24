@@ -10,7 +10,7 @@ import {
   Alert
 } from 'react-native';
 import { router } from 'expo-router';
-import { getCourses, getClassesByCourse, Course, ClassInstance } from '../../services/firebaseService';
+import { getCourses, getClassesByCourse, Course } from '../../services/firebaseService';
 
 export default function CoursesScreen() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -51,7 +51,7 @@ export default function CoursesScreen() {
         pathname: '/course-details',
         params: { 
           courseId: course.id,
-          courseName: course.courseName,
+          courseName: course.type,
           courseData: JSON.stringify(course)
         }
       });
@@ -67,15 +67,15 @@ export default function CoursesScreen() {
       onPress={() => handleCoursePress(item)}
     >
       <View style={styles.courseHeader}>
-        <Text style={styles.courseName}>{item.courseName}</Text>
-        <Text style={styles.coursePrice}>${item.pricePerClass}</Text>
+        <Text style={styles.courseName}>{item.type}</Text>
+        <Text style={styles.coursePrice}>${item.price}</Text>
       </View>
       
       <View style={styles.courseDetails}>
         <Text style={styles.courseInfo}>
           {item.dayOfWeek} • {item.duration} minutes
         </Text>
-        <Text style={styles.courseType}>{item.typeOfClass}</Text>
+        <Text style={styles.courseType}>{item.difficulty}</Text>
         <Text style={styles.courseCapacity}>Capacity: {item.capacity} people</Text>
       </View>
       

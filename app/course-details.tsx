@@ -14,40 +14,58 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { getClassesByCourse, createBooking, Course, ClassInstance } from '../services/firebaseService';
 
+interface ClassInstanceWithDetails extends ClassInstance {
+  courseName: string;
+  pricePerClass: number;
+  duration: number;
+  availableSpots: number;
+}
+
 export default function CourseDetailsScreen() {
   const { user } = useAuth();
   const { courseId, courseName, courseData } = useLocalSearchParams();
   const [course, setCourse] = useState<Course | null>(null);
-  const [classes, setClasses] = useState<ClassInstance[]>([]);
+  const [classes, setClasses] = useState<ClassInstanceWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [bookingLoading, setBookingLoading] = useState<string | null>(null);
 
   useEffect(() => {
+    const loadCourseDetails = async () => {
+      try {
+        // Parse course data from params
+        let courseInfo: Course | null = null;
+        if (courseData) {
+          courseInfo = JSON.parse(courseData as string);
+          setCourse(courseInfo);
+        }
+
+        // Load classes for this course
+        if (courseId && courseInfo) {
+          const classesData = await getClassesByCourse(courseId as string);
+          
+          // Transform classes to include needed properties
+          const enhancedClasses: ClassInstanceWithDetails[] = classesData.map(classItem => ({
+            ...classItem,
+            courseName: courseInfo?.type || 'Yoga Class',
+            pricePerClass: courseInfo?.price || 0,
+            duration: courseInfo?.duration || 60,
+            availableSpots: Math.max(0, (courseInfo?.capacity || 20) - 0) // TODO: Calculate actual bookings
+          }));
+          
+          setClasses(enhancedClasses);
+        }
+      } catch (error) {
+        console.error('Error loading course details:', error);
+        Alert.alert('Error', 'Failed to load course details.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadCourseDetails();
-  }, [courseId]);
+  }, [courseId, courseData]);
 
-  const loadCourseDetails = async () => {
-    try {
-      // Parse course data from params
-      if (courseData) {
-        const parsedCourse = JSON.parse(courseData as string);
-        setCourse(parsedCourse);
-      }
-
-      // Load classes for this course
-      if (courseId) {
-        const classesData = await getClassesByCourse(courseId as string);
-        setClasses(classesData);
-      }
-    } catch (error) {
-      console.error('Error loading course details:', error);
-      Alert.alert('Error', 'Failed to load course details.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBookClass = async (classItem: ClassInstance) => {
+  const handleBookClass = async (classItem: ClassInstanceWithDetails) => {
     if (!user) {
       Alert.alert('Login Required', 'Please login to book a class.');
       return;
@@ -68,7 +86,7 @@ export default function CourseDetailsScreen() {
     );
   };
 
-  const confirmBooking = async (classItem: ClassInstance) => {
+  const confirmBooking = async (classItem: ClassInstanceWithDetails) => {
     if (!user) return;
 
     setBookingLoading(classItem.id);
@@ -110,7 +128,7 @@ export default function CourseDetailsScreen() {
 
   const isClassFull = (availableSpots: number) => availableSpots <= 0;
 
-  const renderClassItem = ({ item }: { item: ClassInstance }) => (
+  const renderClassItem = ({ item }: { item: ClassInstanceWithDetails }) => (
     <View style={styles.classCard}>
       <View style={styles.classHeader}>
         <Text style={styles.classDate}>{formatDate(item.date)}</Text>
@@ -122,7 +140,7 @@ export default function CourseDetailsScreen() {
             styles.spotsText,
             isClassFull(item.availableSpots) && styles.fullClassText
           ]}>
-            {isClassFull(item.availableSpots) ? 'FULL' : `${item.availableSpots} spots`}
+            {isClassFull(item.availableSpots) ? 'FULL' : `${item.availableSpots} slots`}
           </Text>
         </View>
       </View>
@@ -178,7 +196,7 @@ export default function CourseDetailsScreen() {
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {courseName || course?.courseName}
+          {courseName || course?.type}
         </Text>
       </View>
 
@@ -186,11 +204,11 @@ export default function CourseDetailsScreen() {
         {/* Course Info */}
         {course && (
           <View style={styles.courseInfoCard}>
-            <Text style={styles.courseName}>{course.courseName}</Text>
+            <Text style={styles.courseName}>{course.type}</Text>
             <View style={styles.courseDetails}>
               <Text style={styles.courseDetail}>
                 <Text style={styles.detailLabel}>Type: </Text>
-                {course.typeOfClass}
+                {course.type}
               </Text>
               <Text style={styles.courseDetail}>
                 <Text style={styles.detailLabel}>Day: </Text>
@@ -206,7 +224,7 @@ export default function CourseDetailsScreen() {
               </Text>
               <Text style={styles.courseDetail}>
                 <Text style={styles.detailLabel}>Price: </Text>
-                ${course.pricePerClass} per class
+                ${course.price} per class
               </Text>
             </View>
             {course.description && (

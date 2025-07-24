@@ -10,12 +10,12 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { getUpcomingClassesWithCourse, getUserBookings } from '../../services/firebaseService';
+import { getUpcomingClassesWithCourse, getUserBookingsForDisplay, BookingForDisplay } from '../../services/firebaseService';
 
 export default function DashboardHome() {
   const { user, loading: authLoading } = useAuth();
   const [upcomingClasses, setUpcomingClasses] = useState<any[]>([]);
-  const [recentBookings, setRecentBookings] = useState<any[]>([]);
+  const [recentBookings, setRecentBookings] = useState<BookingForDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -30,7 +30,7 @@ export default function DashboardHome() {
     try {
       const [classesData, bookingsData] = await Promise.all([
         getUpcomingClassesWithCourse(),
-        user ? getUserBookings(user.id) : []
+        user ? getUserBookingsForDisplay(user.id) : []
       ]);
       
       setUpcomingClasses(classesData.slice(0, 3)); // Show only first 3
@@ -98,7 +98,7 @@ export default function DashboardHome() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Upcoming Classes</Text>
-          <TouchableOpacity onPress={() => router.push('/classes' as any)}>
+          <TouchableOpacity onPress={() => router.push('/(dashboard)/classes' as any)}>
             <Text style={styles.seeAllText}>See All</Text>
           </TouchableOpacity>
         </View>
@@ -125,7 +125,7 @@ export default function DashboardHome() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My Recent Bookings</Text>
-            <TouchableOpacity onPress={() => router.push('/bookings' as any)}>
+            <TouchableOpacity onPress={() => router.push('/(dashboard)/bookings' as any)}>
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
@@ -158,13 +158,13 @@ export default function DashboardHome() {
         <View style={styles.actionsContainer}>
           <TouchableOpacity 
             style={styles.actionButton}
-            onPress={() => router.push('/courses' as any)}
+            onPress={() => router.push('/(dashboard)/courses' as any)}
           >
             <Text style={styles.actionButtonText}>Browse Courses</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.actionButton}
-            onPress={() => router.push('/classes' as any)}
+            onPress={() => router.push('/(dashboard)/classes' as any)}
           >
             <Text style={styles.actionButtonText}>View All Classes</Text>
           </TouchableOpacity>

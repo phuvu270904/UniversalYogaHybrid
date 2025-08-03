@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
-import { db } from '../config/firebase.config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CryptoJS from 'crypto-js';
+import { addDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { db } from '../config/firebase.config';
 
 interface UserData {
   id: string;
@@ -71,8 +72,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDoc = querySnapshot.docs[0];
       const userData = userDoc.data() as UserData;
       
-      // Simple password check (in production, use proper hashing)
-      if (userData.password !== password) {
+      // Hash the provided password and compare with stored hash
+      const hashedPassword = CryptoJS.SHA256(password).toString();
+      if (userData.password !== hashedPassword) {
         throw new Error('Invalid credentials');
       }
       
@@ -106,10 +108,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('User with this email already exists');
       }
       
+      // Hash the password before storing
+      const hashedPassword = CryptoJS.SHA256(password).toString();
+      
       // Create new user document
       const newUser = {
         email,
-        password, // In production, hash this password
+        password: hashedPassword,
         name,
         phone: phone || '',
         role: 'user',

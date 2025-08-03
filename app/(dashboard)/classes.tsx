@@ -9,11 +9,15 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 import { getUpcomingClassesForDisplay, createBooking, ClassForDisplay } from '../../services/firebaseService';
 
 export default function ClassesScreen() {
   const { user } = useAuth();
+  const { addToCart, isInCart, getCartItemCount } = useCart();
   const [classes, setClasses] = useState<ClassForDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,6 +43,21 @@ export default function ClassesScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     loadClasses();
+  };
+
+  const handleAddToCart = (classItem: ClassForDisplay) => {
+    if (!user) {
+      Alert.alert('Login Required', 'Please login to add classes to cart.');
+      return;
+    }
+
+    if (isInCart(classItem.id)) {
+      Alert.alert('Already in Cart', 'This class is already in your cart.');
+      return;
+    }
+
+    addToCart(classItem);
+    Alert.alert('Added to Cart', `${classItem.courseName} has been added to your cart.`);
   };
 
   const handleBookClass = async (classItem: ClassForDisplay) => {
@@ -133,22 +152,37 @@ export default function ClassesScreen() {
       
       <View style={styles.classFooter}>
         <Text style={styles.classPrice}>${item.pricePerClass}</Text>
-        <TouchableOpacity
-          style={[
-            styles.bookButton,
-            (isClassFull(item.availableSpots) || bookingLoading === item.id) && styles.bookButtonDisabled
-          ]}
-          onPress={() => handleBookClass(item)}
-          disabled={isClassFull(item.availableSpots) || bookingLoading === item.id}
-        >
-          {bookingLoading === item.id ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Text style={styles.bookButtonText}>
-              {isClassFull(item.availableSpots) ? 'Full' : 'Book Now'}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[
+              styles.addToCartButton,
+              isInCart(item.id) && styles.addToCartButtonDisabled
+            ]}
+            onPress={() => handleAddToCart(item)}
+            disabled={isInCart(item.id)}
+          >
+            <Text style={styles.addToCartButtonText}>
+              {isInCart(item.id) ? 'In Cart' : 'Add to Cart'}
             </Text>
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.bookButton,
+              (isClassFull(item.availableSpots) || bookingLoading === item.id) && styles.bookButtonDisabled
+            ]}
+            onPress={() => handleBookClass(item)}
+            disabled={isClassFull(item.availableSpots) || bookingLoading === item.id}
+          >
+            {bookingLoading === item.id ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Text style={styles.bookButtonText}>
+                {isClassFull(item.availableSpots) ? 'Full' : 'Book Now'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -165,10 +199,25 @@ export default function ClassesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Upcoming Classes</Text>
-        <Text style={styles.headerSubtitle}>
-          Book your spot in our yoga classes
-        </Text>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>Upcoming Classes</Text>
+            <Text style={styles.headerSubtitle}>
+              Book your spot in our yoga classes
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.cartButton}
+            onPress={() => router.push('/cart' as any)}
+          >
+            <Ionicons name="basket-outline" size={24} color="white" />
+            {getCartItemCount() > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{getCartItemCount()}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -213,6 +262,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#2E8B57',
     padding: 20,
     paddingTop: 60,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cartButton: {
+    padding: 8,
+    position: 'relative',
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#e53e3e',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cartBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   headerTitle: {
     fontSize: 28,
@@ -299,17 +373,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   classPrice: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#2E8B57',
   },
+  addToCartButton: {
+    backgroundColor: '#f0f8f0',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#2E8B57',
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  addToCartButtonDisabled: {
+    backgroundColor: '#e8e8e8',
+    borderColor: '#ccc',
+  },
+  addToCartButtonText: {
+    color: '#2E8B57',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   bookButton: {
     backgroundColor: '#2E8B57',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    minWidth: 100,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+    minWidth: 80,
     alignItems: 'center',
   },
   bookButtonDisabled: {

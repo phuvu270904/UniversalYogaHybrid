@@ -8,12 +8,15 @@ import {
   RefreshControl,
   ActivityIndicator
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 import { getUpcomingClassesWithCourse, getUserBookingsForDisplay, BookingForDisplay } from '../../services/firebaseService';
 
 export default function DashboardHome() {
   const { user, loading: authLoading } = useAuth();
+  const { getCartItemCount } = useCart();
   const [upcomingClasses, setUpcomingClasses] = useState<any[]>([]);
   const [recentBookings, setRecentBookings] = useState<BookingForDisplay[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,8 +81,23 @@ export default function DashboardHome() {
       }
     >
       <View style={styles.header}>
-        <Text style={styles.greeting}>Welcome back,</Text>
-        <Text style={styles.userName}>{user?.name || 'Yoga Enthusiast'}!</Text>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.greeting}>Welcome back,</Text>
+            <Text style={styles.userName}>{user?.name || 'Yoga Enthusiast'}!</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.cartButton}
+            onPress={() => router.push('/cart' as any)}
+          >
+            <Ionicons name="basket-outline" size={24} color="white" />
+            {getCartItemCount() > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{getCartItemCount()}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Quick Stats */}
@@ -194,6 +212,31 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
     backgroundColor: '#2E8B57',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cartButton: {
+    padding: 8,
+    position: 'relative',
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#e53e3e',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cartBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   greeting: {
     fontSize: 18,

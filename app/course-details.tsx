@@ -12,7 +12,8 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
-import { getClassesByCourse, createBooking, Course, ClassInstance } from '../services/firebaseService';
+import { useCart } from '../contexts/CartContext';
+import { getClassesByCourse, createBooking, getCourse, Course, ClassInstance, ClassForDisplay } from '../services/firebaseService';
 
 interface ClassInstanceWithDetails extends ClassInstance {
   courseName: string;
@@ -23,6 +24,7 @@ interface ClassInstanceWithDetails extends ClassInstance {
 
 export default function CourseDetailsScreen() {
   const { user } = useAuth();
+  const { addToCart, isInCart, getCartItemCount } = useCart();
   const { courseId, courseName, courseData } = useLocalSearchParams();
   const [course, setCourse] = useState<Course | null>(null);
   const [classes, setClasses] = useState<ClassInstanceWithDetails[]>([]);
@@ -65,6 +67,39 @@ export default function CourseDetailsScreen() {
     loadCourseDetails();
   }, [courseId, courseData]);
 
+  const convertToClassForDisplay = (classItem: ClassInstanceWithDetails): ClassForDisplay => {
+    return {
+      id: classItem.id,
+      courseId: classItem.course_id,
+      courseName: classItem.courseName,
+      date: classItem.date,
+      teacher: classItem.teacher,
+      comments: classItem.comments,
+      duration: classItem.duration,
+      typeOfClass: course?.type || 'Yoga Class',
+      pricePerClass: classItem.pricePerClass,
+      availableSpots: classItem.availableSpots,
+      difficulty: course?.difficulty || 'Beginner',
+      capacity: course?.capacity || 20
+    };
+  };
+
+  const handleAddToCart = (classItem: ClassInstanceWithDetails) => {
+    if (!user) {
+      Alert.alert('Login Required', 'Please login to add classes to cart.');
+      return;
+    }
+
+    if (isInCart(classItem.id)) {
+      Alert.alert('Already in Cart', 'This class is already in your cart.');
+      return;
+    }
+
+    const classForDisplay = convertToClassForDisplay(classItem);
+    addToCart(classForDisplay);
+    Alert.alert('Added to Cart', `${classItem.courseName} has been added to your cart.`);
+  };
+
   const handleBookClass = async (classItem: ClassInstanceWithDetails) => {
     if (!user) {
       Alert.alert('Login Required', 'Please login to book a class.');
@@ -91,11 +126,12 @@ export default function CourseDetailsScreen() {
 
     setBookingLoading(classItem.id);
     try {
+      const classForDisplay = convertToClassForDisplay(classItem);
       await createBooking(
         user.id,
         user.name,
         user.email,
-        classItem
+        classForDisplay
       );
       
       Alert.alert('Success', 'Class booked successfully!');
@@ -156,22 +192,37 @@ export default function CourseDetailsScreen() {
       
       <View style={styles.classFooter}>
         <Text style={styles.classPrice}>${item.pricePerClass}</Text>
-        <TouchableOpacity
-          style={[
-            styles.bookButton,
-            (isClassFull(item.availableSpots) || bookingLoading === item.id) && styles.bookButtonDisabled
-          ]}
-          onPress={() => handleBookClass(item)}
-          disabled={isClassFull(item.availableSpots) || bookingLoading === item.id}
-        >
-          {bookingLoading === item.id ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Text style={styles.bookButtonText}>
-              {isClassFull(item.availableSpots) ? 'Full' : 'Book Now'}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[
+              styles.addToCartButton,
+              isInCart(item.id) && styles.addToCartButtonDisabled
+            ]}
+            onPress={() => handleAddToCart(item)}
+            disabled={isInCart(item.id)}
+          >
+            <Text style={styles.addToCartButtonText}>
+              {isInCart(item.id) ? 'In Cart' : 'Add to Cart'}
             </Text>
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.bookButton,
+              (isClassFull(item.availableSpots) || bookingLoading === item.id) && styles.bookButtonDisabled
+            ]}
+            onPress={() => handleBookClass(item)}
+            disabled={isClassFull(item.availableSpots) || bookingLoading === item.id}
+          >
+            {bookingLoading === item.id ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Text style={styles.bookButtonText}>
+                {isClassFull(item.availableSpots) ? 'Full' : 'Book Now'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -198,6 +249,17 @@ export default function CourseDetailsScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {courseName || course?.type}
         </Text>
+        <TouchableOpacity 
+          style={styles.cartButton}
+          onPress={() => router.push('/cart' as any)}
+        >
+          <Ionicons name="basket-outline" size={24} color="white" />
+          {getCartItemCount() > 0 && (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>{getCartItemCount()}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content}>
@@ -290,6 +352,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'white',
     flex: 1,
+  },
+  cartButton: {
+    padding: 8,
+    position: 'relative',
+    marginLeft: 15,
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#e53e3e',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cartBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   content: {
     flex: 1,
@@ -404,17 +487,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   classPrice: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2E8B57',
   },
+  addToCartButton: {
+    backgroundColor: '#f0f8f0',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#2E8B57',
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  addToCartButtonDisabled: {
+    backgroundColor: '#e8e8e8',
+    borderColor: '#ccc',
+  },
+  addToCartButtonText: {
+    color: '#2E8B57',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   bookButton: {
     backgroundColor: '#2E8B57',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    minWidth: 100,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 6,
+    minWidth: 80,
     alignItems: 'center',
   },
   bookButtonDisabled: {
